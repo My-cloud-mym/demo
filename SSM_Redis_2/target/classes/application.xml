@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+		xmlns:context="http://www.springframework.org/schema/context"
+      	xmlns:aop="http://www.springframework.org/schema/aop"
+      	xmlns:util="http://www.springframework.org/schema/util"
+        xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       
+       xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop.xsd
+        http://www.springframework.org/schema/util
+        http://www.springframework.org/schema/util/spring-util.xsd
+        http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd">
+        
+    <!-- 告诉Spring扫描哪些包，以及 -->  
+	<context:component-scan base-package="com.zhiyou"></context:component-scan>      
+	<!-- 1：加载属性文件到这里面 -->
+	<util:properties id="db" location="classpath:db.properties"></util:properties>
+	<!--:2：加载数据库连接池 -->
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+		<property name="driverClassName" value="#{db.driver}" />
+		<property name="url" value="#{db.url}" />
+		<property name="username" value="#{db.username}" />
+		<property name="password" value="#{db.password}" />
+	</bean>
+	<!-- 3：加载SqlSessionFactory -->
+	<bean id="sessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<!-- 告知MyBatis总配置文件在哪 -->
+		<property name="configLocation" value="classpath:MyBatisConfig.xml" />
+		<!-- 告知小mapper文件在哪 -->
+		<property name="mapperLocations" value="classpath:mapper/*.xml" />
+	</bean>
+	
+	<!--:4：配置mapper接口扫描，用于给接口创建代理类对象 -->
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<!-- 告知接口的路径 -->
+		<property name="basePackage" value="com.zhiyou.dao" />
+		<!-- 需要使用sqlsession才能给接口创建代理类对象 -->
+		<property name="sqlSessionFactory" ref="sessionFactory"/>
+	</bean>
+	
+	<!-- 配置redis -->
+	<!-- 1：引入属性文件 -->
+	<util:properties id="redis" location="classpath:redis.properties" />
+	<!-- 2:配置redis pool -->
+	<bean id="redisPool" class="redis.clients.jedis.JedisPoolConfig">
+		<property name="maxIdle" value="#{redis.maxIdle}" />
+		<property name="maxTotal" value="#{redis.maxTotal}" />
+	</bean>
+	
+	<!-- 3:配置redis连接 -->
+	<bean id="jedisConnection" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">
+		<property name="hostName" value="#{redis.host}" />
+		<property name="port" value="#{redis.port}" />
+		<property name="password" value="#{redis.password}" />
+		<property name="poolConfig" ref="redisPool" />
+	</bean>
+	<!-- 4:配置Redis操作模板 -->
+	<bean id="redisTemplate" class="org.springframework.data.redis.core.RedisTemplate">
+		<property name="connectionFactory" ref="jedisConnection" />
+	</bean>
+	<!-- 5:Redis缓存管理器 -->
+	<bean id="redisCacheManager" class="org.springframework.data.redis.cache.RedisCacheManager">
+		<constructor-arg name="redisOperations" ref="redisTemplate" />
+		<property name="defaultExpiration" value="300" />
+	</bean>
+</beans>
+
